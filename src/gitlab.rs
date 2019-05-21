@@ -3,7 +3,7 @@ use crate::Config;
 use futures::{future, Future};
 use js_sys::Promise;
 use serde::Deserialize;
-use serde_json;
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -21,14 +21,14 @@ struct GitLabJob {
 struct GitLabPipelineDetail {
     id: i32,
     status: String,
-    duration: i32,
+    r#ref: String,
+    duration: Option<i32>,
 }
 
 #[derive(Deserialize)]
 struct GitLabPipeline {
     id: i32,
     status: String,
-    r#ref: String,
 }
 
 #[derive(Deserialize)]
@@ -38,11 +38,11 @@ struct GitLabProject {
 }
 
 pub struct GitLab {
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl GitLab {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Arc<Config>) -> Self {
         GitLab { config }
     }
 
@@ -56,7 +56,7 @@ impl GitLab {
             .expect("Failed to set auth header");
     }
 
-    fn prepare_request(&self, url: String) -> impl Future<Item = JsValue, Error = JsValue> {
+    fn prepare_request(&self, url: &str) -> impl Future<Item = JsValue, Error = JsValue> {
         let window = web_sys::window().expect("no global `window` exists");
 
         let mut opts = RequestInit::new();
@@ -64,7 +64,7 @@ impl GitLab {
         opts.mode(RequestMode::Cors);
 
         let request =
-            Request::new_with_str_and_init(&url, &opts).expect("Failed to initialize request");
+            Request::new_with_str_and_init(url, &opts).expect("Failed to initialize request");
         self.set_request_headers(&request);
 
         let request_promise = window.fetch_with_request(&request);
@@ -83,13 +83,18 @@ impl GitLab {
     }
 
     pub fn request_projects(&self) -> impl Future<Item = Vec<dom::Project>, Error = JsValue> {
+        // console::log_1(&JsValue::from("Request projects"));
         let url = format!("{}/api/v4/projects?membership=true", self.config.server);
         let request_future = self
-            .prepare_request(url)
-            .and_then(|jsvalue| {
-                jsvalue
-                    .into_serde::<Vec<GitLabProject>>()
-                    .map_err(|e| JsValue::from(e.to_string()))
+            .prepare_request(&url)
+            .and_then(move |jsvalue| {
+                jsvalue.into_serde::<Vec<GitLabProject>>().map_err(|e| {
+                    JsValue::from(&format!(
+                        "Failed to parse response for {}: {}",
+                        &url,
+                        e.to_string()
+                    ))
+                })
             })
             .and_then(|projects| {
                 future::ok(
@@ -109,17 +114,24 @@ impl GitLab {
         &self,
         project_id: i32,
     ) -> impl Future<Item = Vec<dom::Pipeline>, Error = JsValue> {
+        // console::log_1(&JsValue::from(&format!(
+        //     "Request pipelines for project {}",
+        //     project_id
+        // )));
         let url = format!(
             "{}/api/v4/projects/{}/pipelines?order_by=id&sort=desc",
             self.config.server, project_id
         );
         let request_future = self
-            .prepare_request(url)
-            .and_then(|jsvalue| {
-                console::log_1(&JsValue::from(&jsvalue));
-                jsvalue
-                    .into_serde::<Vec<GitLabPipeline>>()
-                    .map_err(|e| JsValue::from(e.to_string()))
+            .prepare_request(&url)
+            .and_then(move |jsvalue| {
+                jsvalue.into_serde::<Vec<GitLabPipeline>>().map_err(|e| {
+                    JsValue::from(&format!(
+                        "Failed to parse response for {}: {}",
+                        &url,
+                        e.to_string()
+                    ))
+                })
             })
             .and_then(|projects| {
                 future::ok(
@@ -127,7 +139,6 @@ impl GitLab {
                         .into_iter()
                         .map(|p| dom::Pipeline {
                             id: p.id,
-                            r#ref: p.r#ref,
                             status: map_status(&p.status),
                         })
                         .collect::<Vec<dom::Pipeline>>(),
@@ -141,23 +152,31 @@ impl GitLab {
         project_id: i32,
         pipeline_id: i32,
     ) -> impl Future<Item = dom::PipelineDetail, Error = JsValue> {
+        // console::log_1(&JsValue::from(&format!(
+        //     "Request pipeline detail for project {}, pipeline {}",
+        //     project_id, pipeline_id
+        // )));
         let url = format!(
             "{}/api/v4/projects/{}/pipelines/{}",
             self.config.server, project_id, pipeline_id
         );
         let request_future = self
-            .prepare_request(url)
-            .and_then(|jsvalue| {
-                console::log_1(&JsValue::from(&jsvalue));
-                jsvalue
-                    .into_serde::<GitLabPipelineDetail>()
-                    .map_err(|e| JsValue::from(e.to_string()))
+            .prepare_request(&url)
+            .and_then(move |jsvalue| {
+                jsvalue.into_serde::<GitLabPipelineDetail>().map_err(|e| {
+                    JsValue::from(&format!(
+                        "Failed to parse response for {}: {}",
+                        &url,
+                        e.to_string()
+                    ))
+                })
             })
             .and_then(|pipeline| {
                 future::ok(dom::PipelineDetail {
                     id: pipeline.id,
                     status: map_status(&pipeline.status),
-                    duration: pipeline.duration,
+                    r#ref: pipeline.r#ref,
+                    duration: pipeline.duration.unwrap_or(0),
                 })
             });
         request_future
@@ -168,17 +187,24 @@ impl GitLab {
         project_id: i32,
         pipeline_id: i32,
     ) -> impl Future<Item = Vec<dom::Job>, Error = JsValue> {
+        // console::log_1(&JsValue::from(&format!(
+        //     "Request jobs for project {}, pipeline {}",
+        //     project_id, pipeline_id
+        // )));
         let url = format!(
             "{}/api/v4/projects/{}/pipelines/{}/jobs",
             self.config.server, project_id, pipeline_id
         );
         let request_future = self
-            .prepare_request(url)
-            .and_then(|jsvalue| {
-                console::log_1(&JsValue::from(&jsvalue));
-                jsvalue
-                    .into_serde::<Vec<GitLabJob>>()
-                    .map_err(|e| JsValue::from(e.to_string()))
+            .prepare_request(&url)
+            .and_then(move |jsvalue| {
+                jsvalue.into_serde::<Vec<GitLabJob>>().map_err(|e| {
+                    JsValue::from(&format!(
+                        "Failed to parse response for {}: {}",
+                        &url,
+                        e.to_string()
+                    ))
+                })
             })
             .and_then(|projects| {
                 future::ok(

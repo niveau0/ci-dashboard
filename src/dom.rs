@@ -17,12 +17,12 @@ pub struct Job {
 pub struct Pipeline {
     pub id: i32,
     pub status: Status,
-    pub r#ref: String,
 }
 
 pub struct PipelineDetail {
     pub id: i32,
     pub status: Status,
+    pub r#ref: String,
     pub duration: i32,
 }
 
@@ -35,40 +35,39 @@ pub struct Project {
 pub struct Dom {}
 
 impl Dom {
-    pub fn update_content(document: &web_sys::Document, projects: &Vec<Project>) {
-        let content = document
-            .get_element_by_id("Content")
-            .expect("document should have content region");
-
-        for project in projects {
-            let project_container = document
-                .create_element("div")
-                .expect("Failed to create project container");
-            project_container.set_class_name("project hidden");
-            project_container.set_id(&format!("pr{}", project.id));
-            let project_name = document
-                .create_element("h1")
-                .expect("Failed to create project name");
-            project_name.set_text_content(Some(&project.name));
-            project_container
-                .append_child(&project_name)
-                .expect("Failed to add project name");
-
-            content
-                .append_child(&project_container)
-                .expect("Failed to add project");
-        }
-    }
-
     pub fn update_project(
         document: &web_sys::Document,
-        project_id: i32,
+        id: i32,
+        name: &str,
         pipelines: &Vec<Pipeline>,
     ) {
-        let element_id = format!("pr{}", project_id);
-        let project_container = document
-            .get_element_by_id(&element_id)
-            .expect("missing project element");
+        let element_id = format!("pr{}", id);
+        let project_container = match document.get_element_by_id(&element_id) {
+            Some(project_container) => project_container,
+            None => {
+                let content = document
+                    .get_element_by_id("Content")
+                    .expect("document should have content region");
+                let project_container = document
+                    .create_element("div")
+                    .expect("Failed to create project container");
+                project_container.set_class_name("project hidden");
+                project_container.set_id(&element_id);
+                let project_name = document
+                    .create_element("h1")
+                    .expect("Failed to create project name");
+                project_name.set_text_content(Some(name));
+                project_container
+                    .append_child(&project_name)
+                    .expect("Failed to add project name");
+
+                content
+                    .append_child(&project_container)
+                    .expect("Failed to add project");
+                project_container
+            }
+        };
+
         if pipelines.len() > 0 {
             match pipelines[0].status {
                 Status::SUCCESS => {
@@ -87,38 +86,6 @@ impl Dom {
         } else {
             project_container.set_class_name("project bg-skipped");
         }
-
-        let mut max = 5;
-        for pipeline in pipelines {
-            let pipeline_container = document
-                .create_element("div")
-                .expect("Failed to create pipeline container");
-            pipeline_container.set_class_name("pipeline bg-skipped");
-            pipeline_container.set_id(&format!("pr{}_pl{}", project_id, pipeline.id));
-            pipeline_container.set_text_content(Some(&format!(
-                "#{} / {}",
-                pipeline.id.to_string(),
-                pipeline.r#ref
-            )));
-
-            let time_container = document
-                .create_element("div")
-                .expect("Failed to create time icon");
-            time_container.set_class_name("time");
-            time_container.set_id(&format!("pr{}_pl{}_time", project_id, pipeline.id));
-
-            pipeline_container
-                .append_child(&time_container)
-                .expect("Failed to add time element");
-
-            project_container
-                .append_child(&pipeline_container)
-                .expect("Failed to add pipeline");
-            max -= 1;
-            if max < 1 {
-                break;
-            }
-        }
     }
 
     pub fn update_pipeline(
@@ -126,10 +93,43 @@ impl Dom {
         project_id: i32,
         pipeline: &PipelineDetail,
     ) {
-        let element_id = format!("pr{}_pl{}", project_id, pipeline.id);
-        let pipeline_container = document
+        let element_id = format!("pr{}", project_id);
+        let project_container = document
             .get_element_by_id(&element_id)
-            .expect("missing pipeline element");
+            .expect("Failed to find project for pipeline");
+
+        let element_id = format!("pr{}_pl{}", project_id, pipeline.id);
+        let pipeline_container = match document.get_element_by_id(&element_id) {
+            Some(pipeline_container) => pipeline_container,
+            None => {
+                let pipeline_container = document
+                    .create_element("div")
+                    .expect("Failed to create pipeline container");
+                pipeline_container.set_class_name("pipeline bg-skipped");
+                pipeline_container.set_id(&element_id);
+                pipeline_container.set_text_content(Some(&format!(
+                    "#{} / {}",
+                    pipeline.id.to_string(),
+                    pipeline.r#ref
+                )));
+
+                let time_container = document
+                    .create_element("div")
+                    .expect("Failed to create time icon");
+                time_container.set_class_name("time");
+                time_container.set_id(&format!("pr{}_pl{}_time", project_id, pipeline.id));
+
+                pipeline_container
+                    .append_child(&time_container)
+                    .expect("Failed to add time element");
+
+                project_container
+                    .append_child(&pipeline_container)
+                    .expect("Failed to add pipeline");
+
+                pipeline_container
+            }
+        };
 
         match pipeline.status {
             Status::SUCCESS => {
@@ -172,9 +172,20 @@ impl Dom {
             .expect("missing pipeline element");
 
         for job in jobs {
-            let job_container = document
-                .create_element("div")
-                .expect("Failed to create job container");
+            let element_id = format!("pr{}_pl{}_{}", project_id, pipeline_id, &job.name);
+            let job_container = match document.get_element_by_id(&element_id) {
+                Some(job_container) => job_container,
+                None => {
+                    let job_container = document
+                        .create_element("div")
+                        .expect("Failed to create job container");
+                    job_container.set_id(&element_id);
+                    pipeline_container
+                        .append_child(&job_container)
+                        .expect("Failed to add job");
+                    job_container
+                }
+            };
 
             match job.status {
                 Status::SUCCESS => {
@@ -209,9 +220,6 @@ impl Dom {
                     job_container.set_class_name("job job-skipped");
                 }
             }
-            pipeline_container
-                .append_child(&job_container)
-                .expect("Failed to add job");
         }
     }
 }
