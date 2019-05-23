@@ -2,15 +2,18 @@
     0% {
         background-color: lightblue;
     }
+
     50% {
         background-color: darkcyan;
     }
+
     100% {
         background-color: lightblue;
     }
 }
 
-html, body {
+html,
+body {
     height: 100%;
     color: white;
     background-color: black;
@@ -95,9 +98,28 @@ i {
     margin: 0.2em;
 }
 
+.pipeline .label {
+    display: inline-block;
+}
+
+.job-running {
+    animation-name: buildcolorgrade;
+    animation-iteration-count: infinite;
+    animation-duration: 3s;
+    color: black;
+}
+
+.job-running a {
+    color: black;
+}
+
 .job-success {
     border-color: darkgreen;
     background-color: mediumseagreen;
+    color: black;
+}
+
+.job-success a {
     color: black;
 }
 
@@ -107,15 +129,27 @@ i {
     color: white;
 }
 
+.job-fail a {
+    color: white;
+}
+
 .job-skipped {
     border-color: black;
     background-color: darkgray;
     color: black;
 }
 
+.job-skipped a {
+    color: black;
+}
+
 .job-manual {
     border-color: cornflowerblue;
     background-color: lightblue;
+    color: black;
+}
+
+.job-manual a {
     color: black;
 }
 
@@ -126,7 +160,7 @@ i {
     border-width: 2px;
     border-style: solid;
     border-radius: 24px;
-    padding-top: 0.4em;
+    padding-top: 0.2em;
     padding-bottom: 0.4em;
     padding-left: 0.4em;
     padding-right: 0.4em;

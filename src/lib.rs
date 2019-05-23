@@ -116,8 +116,7 @@ fn update_gitlab(document: Arc<web_sys::Document>, state: AppState, config: Arc<
                 .and_then(move |pipelines| {
                     if pipelines.len() > 0 {
                         let project_id = project.id;
-                        let project_name = project.name;
-                        dom::Dom::update_project(&document, project_id, &project_name, &pipelines);
+                        dom::Dom::update_project(&document, project_id, &project.name, &project.group, &pipelines);
 
                         let mut max = 5;
                         for pipeline in &pipelines {
@@ -126,13 +125,19 @@ fn update_gitlab(document: Arc<web_sys::Document>, state: AppState, config: Arc<
                             }
                             max -= 1;
 
+                            dom::Dom::update_pipeline(
+                                &document,
+                                project_id,
+                                &pipeline,
+                            );
+
                             let pipeline_id = pipeline.id;
                             let document = document.clone();
                             let gitlab = gitlab.clone();
                             let future = gitlab
                                 .request_pipeline_detail(project_id, pipeline_id)
                                 .and_then(move |pipeline_detail| {
-                                    dom::Dom::update_pipeline(
+                                    dom::Dom::update_pipeline_detail(
                                         &document,
                                         project_id,
                                         &pipeline_detail,

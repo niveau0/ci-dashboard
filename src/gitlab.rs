@@ -15,6 +15,7 @@ struct GitLabJob {
     id: i32,
     name: String,
     status: String,
+    web_url: String,
 }
 
 #[derive(Deserialize)]
@@ -32,9 +33,15 @@ struct GitLabPipeline {
 }
 
 #[derive(Deserialize)]
+struct GitLabNameSpace {
+    name: String,
+}
+
+#[derive(Deserialize)]
 struct GitLabProject {
     id: i32,
     name: String,
+    namespace: GitLabNameSpace,
 }
 
 pub struct GitLab {
@@ -103,6 +110,7 @@ impl GitLab {
                         .map(|p| dom::Project {
                             id: p.id,
                             name: p.name,
+                            group: p.namespace.name,
                         })
                         .collect::<Vec<dom::Project>>(),
                 )
@@ -206,13 +214,14 @@ impl GitLab {
                     ))
                 })
             })
-            .and_then(|projects| {
+            .and_then(|jobs| {
                 future::ok(
-                    projects
+                    jobs
                         .into_iter()
                         .map(|j| dom::Job {
                             name: j.name,
                             status: map_status(&j.status),
+                            link: j.web_url,
                         })
                         .collect::<Vec<dom::Job>>(),
                 )
@@ -232,14 +241,5 @@ fn map_status(status: &str) -> dom::Status {
         "skipped" => dom::Status::SKIPPED,
         "manual" => dom::Status::MANUAL,
         _ => dom::Status::FAILED, // TODO unknown status
-    }
-}
-
-impl From<GitLabJob> for dom::Job {
-    fn from(gitlab_job: GitLabJob) -> Self {
-        dom::Job {
-            name: gitlab_job.name,
-            status: map_status(&gitlab_job.status),
-        }
     }
 }

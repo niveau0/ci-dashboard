@@ -12,6 +12,7 @@ pub enum Status {
 pub struct Job {
     pub name: String,
     pub status: Status,
+    pub link: String,
 }
 
 pub struct Pipeline {
@@ -30,6 +31,7 @@ pub struct PipelineDetail {
 pub struct Project {
     pub id: i32,
     pub name: String,
+    pub group: String,
 }
 
 pub struct Dom {}
@@ -39,6 +41,7 @@ impl Dom {
         document: &web_sys::Document,
         id: i32,
         name: &str,
+        group: &str,
         pipelines: &Vec<Pipeline>,
     ) {
         let element_id = format!("pr{}", id);
@@ -56,7 +59,7 @@ impl Dom {
                 let project_name = document
                     .create_element("h1")
                     .expect("Failed to create project name");
-                project_name.set_text_content(Some(name));
+                project_name.set_text_content(Some(&format!("{}/{}", group, name)));
                 project_container
                     .append_child(&project_name)
                     .expect("Failed to add project name");
@@ -91,6 +94,50 @@ impl Dom {
     pub fn update_pipeline(
         document: &web_sys::Document,
         project_id: i32,
+        pipeline: &Pipeline,
+    ) {
+        let element_id = format!("pr{}", project_id);
+        let project_container = document
+            .get_element_by_id(&element_id)
+            .expect("Failed to find project for pipeline");
+
+        let element_id = format!("pr{}_pl{}", project_id, pipeline.id);
+        if let None = document.get_element_by_id(&element_id) {
+            let pipeline_container = document
+                .create_element("div")
+                .expect("Failed to create pipeline container");
+            pipeline_container.set_class_name("pipeline bg-skipped");
+            pipeline_container.set_id(&element_id);
+
+            let label_container = document
+                .create_element("div")
+                .expect("Failed to create pipeline label container");
+            label_container.set_class_name("label");
+            label_container.set_id(&format!("pr{}_pl{}_label", project_id, pipeline.id));
+
+            pipeline_container
+                .append_child(&label_container)
+                .expect("Failed to add time element");
+
+            let time_container = document
+                .create_element("div")
+                .expect("Failed to create time container");
+            time_container.set_class_name("time");
+            time_container.set_id(&format!("pr{}_pl{}_time", project_id, pipeline.id));
+
+            pipeline_container
+                .append_child(&time_container)
+                .expect("Failed to add time element");
+
+            project_container
+                .append_child(&pipeline_container)
+                .expect("Failed to add pipeline");
+        };
+    }
+
+    pub fn update_pipeline_detail(
+        document: &web_sys::Document,
+        project_id: i32,
         pipeline: &PipelineDetail,
     ) {
         let element_id = format!("pr{}", project_id);
@@ -101,34 +148,7 @@ impl Dom {
         let element_id = format!("pr{}_pl{}", project_id, pipeline.id);
         let pipeline_container = match document.get_element_by_id(&element_id) {
             Some(pipeline_container) => pipeline_container,
-            None => {
-                let pipeline_container = document
-                    .create_element("div")
-                    .expect("Failed to create pipeline container");
-                pipeline_container.set_class_name("pipeline bg-skipped");
-                pipeline_container.set_id(&element_id);
-                pipeline_container.set_text_content(Some(&format!(
-                    "#{} / {}",
-                    pipeline.id.to_string(),
-                    pipeline.r#ref
-                )));
-
-                let time_container = document
-                    .create_element("div")
-                    .expect("Failed to create time icon");
-                time_container.set_class_name("time");
-                time_container.set_id(&format!("pr{}_pl{}_time", project_id, pipeline.id));
-
-                pipeline_container
-                    .append_child(&time_container)
-                    .expect("Failed to add time element");
-
-                project_container
-                    .append_child(&pipeline_container)
-                    .expect("Failed to add pipeline");
-
-                pipeline_container
-            }
+            None => return
         };
 
         match pipeline.status {
@@ -149,6 +169,16 @@ impl Dom {
         let hours: i32 = pipeline.duration / 3600;
         let minutes: i32 = (pipeline.duration % 3600) / 60;
         let seconds = pipeline.duration % 60;
+
+        let element_id = format!("pr{}_pl{}_label", project_id, pipeline.id);
+        let label_container = document
+            .get_element_by_id(&element_id)
+            .expect("Failed to find label element");
+        label_container.set_text_content(Some(&format!(
+            "#{} / {}",
+            pipeline.id.to_string(),
+            pipeline.r#ref
+        )));
 
         let element_id = format!("pr{}_pl{}_time", project_id, pipeline.id);
         let time_container = document
@@ -190,32 +220,43 @@ impl Dom {
             match job.status {
                 Status::SUCCESS => {
                     job_container
-                        .set_inner_html(&format!(r#"<i class="fas fa-check"></i>{}"#, job.name));
+                        .set_inner_html(&format!(r#"<i class="fas fa-check"></i><a href="{}" target="_blank">{}</a>"#, 
+                        job.link, job.name
+                    ));
                     job_container.set_class_name("job job-success")
                 }
                 Status::FAILED => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-times-circle"></i>{}"#,
-                        job.name
+                        r#"<i class="fas fa-times-circle"></i><a href="{} target="_blank"">{}</a>"#, 
+                        job.link, job.name
                     ));
                     job_container.set_class_name("job job-fail");
                 }
                 Status::CANCELED => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-stop-circle"></i>{}"#,
-                        job.name
+                        r#"<i class="fas fa-stop-circle"></i><a href="{}" target="_blank">{}</a>"#, 
+                        job.link, job.name
                     ));
                     job_container.set_class_name("job job-skipped");
                 }
                 Status::MANUAL => {
                     job_container
-                        .set_inner_html(&format!(r#"<i class="fas fa-play"></i>{}"#, job.name));
+                        .set_inner_html(&format!(r#"<i class="fas fa-play"></i><a href="{}" target="_blank">{}</a>"#, 
+                        job.link, job.name
+                    ));
                     job_container.set_class_name("job job-manual");
+                }
+                Status::RUNNING => {
+                    job_container
+                        .set_inner_html(&format!(r#"<i class="fas fa-cog fa-spin"></i><a href="{}" target="_blank">{}</a>"#, 
+                        job.link, job.name
+                    ));
+                    job_container.set_class_name("job job-running");
                 }
                 _ => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-minus-circle"></i>{}"#,
-                        job.name
+                        r#"<i class="fas fa-minus-circle"></i><a href="{}" target="_blank">{}</a>"#, 
+                        job.link, job.name
                     ));
                     job_container.set_class_name("job job-skipped");
                 }
