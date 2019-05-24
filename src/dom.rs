@@ -37,6 +37,16 @@ pub struct Project {
 pub struct Dom {}
 
 impl Dom {
+    fn map_status_to_bg(status: &Status) -> &'static str {
+        match status {
+            Status::SUCCESS => "bg-success",
+            Status::FAILED => "bg-fail",
+            Status::RUNNING => "bg-running",
+            Status::MANUAL => "bg-manual",
+            Status::CREATED | Status::CANCELED | Status::SKIPPED | Status::PENDING => "bg-skipped",
+        }
+    }
+
     pub fn update_project(
         document: &web_sys::Document,
         id: i32,
@@ -72,30 +82,14 @@ impl Dom {
         };
 
         if pipelines.len() > 0 {
-            match pipelines[0].status {
-                Status::SUCCESS => {
-                    project_container.set_class_name("project bg-success");
-                }
-                Status::FAILED => {
-                    project_container.set_class_name("project bg-fail");
-                }
-                Status::CANCELED => {
-                    project_container.set_class_name("project bg-canceled");
-                }
-                _ => {
-                    project_container.set_class_name("project bg-skipped");
-                }
-            }
-        } else {
-            project_container.set_class_name("project bg-skipped");
+            project_container.set_class_name(&format!(
+                "project {}",
+                Dom::map_status_to_bg(&pipelines[0].status)
+            ));
         }
     }
 
-    pub fn update_pipeline(
-        document: &web_sys::Document,
-        project_id: i32,
-        pipeline: &Pipeline,
-    ) {
+    pub fn update_pipeline(document: &web_sys::Document, project_id: i32, pipeline: &Pipeline) {
         let element_id = format!("pr{}", project_id);
         let project_container = document
             .get_element_by_id(&element_id)
@@ -140,31 +134,16 @@ impl Dom {
         project_id: i32,
         pipeline: &PipelineDetail,
     ) {
-        let element_id = format!("pr{}", project_id);
-        let project_container = document
-            .get_element_by_id(&element_id)
-            .expect("Failed to find project for pipeline");
-
         let element_id = format!("pr{}_pl{}", project_id, pipeline.id);
         let pipeline_container = match document.get_element_by_id(&element_id) {
             Some(pipeline_container) => pipeline_container,
-            None => return
+            None => return,
         };
 
-        match pipeline.status {
-            Status::SUCCESS => {
-                pipeline_container.set_class_name("pipeline bg-success");
-            }
-            Status::FAILED => {
-                pipeline_container.set_class_name("pipeline bg-fail");
-            }
-            Status::CANCELED => {
-                pipeline_container.set_class_name("pipeline bg-canceled");
-            }
-            _ => {
-                pipeline_container.set_class_name("pipeline bg-skipped");
-            }
-        }
+        pipeline_container.set_class_name(&format!(
+            "pipeline {}",
+            Dom::map_status_to_bg(&pipeline.status)
+        ));
 
         let hours: i32 = pipeline.duration / 3600;
         let minutes: i32 = (pipeline.duration % 3600) / 60;
@@ -219,43 +198,43 @@ impl Dom {
 
             match job.status {
                 Status::SUCCESS => {
-                    job_container
-                        .set_inner_html(&format!(r#"<i class="fas fa-check"></i><a href="{}" target="_blank">{}</a>"#, 
+                    job_container.set_inner_html(&format!(
+                        r#"<i class="fas fa-check"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-success")
                 }
                 Status::FAILED => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-times-circle"></i><a href="{} target="_blank"">{}</a>"#, 
+                        r#"<i class="fas fa-times-circle"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-fail");
                 }
                 Status::CANCELED => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-stop-circle"></i><a href="{}" target="_blank">{}</a>"#, 
+                        r#"<i class="fas fa-stop-circle"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-skipped");
                 }
                 Status::MANUAL => {
-                    job_container
-                        .set_inner_html(&format!(r#"<i class="fas fa-play"></i><a href="{}" target="_blank">{}</a>"#, 
+                    job_container.set_inner_html(&format!(
+                        r#"<i class="fas fa-play"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-manual");
                 }
                 Status::RUNNING => {
-                    job_container
-                        .set_inner_html(&format!(r#"<i class="fas fa-cog fa-spin"></i><a href="{}" target="_blank">{}</a>"#, 
+                    job_container.set_inner_html(&format!(
+                        r#"<i class="fas fa-cog fa-spin"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-running");
                 }
                 _ => {
                     job_container.set_inner_html(&format!(
-                        r#"<i class="fas fa-minus-circle"></i><a href="{}" target="_blank">{}</a>"#, 
+                        r#"<i class="fas fa-minus-circle"></i><a href="{}" target="_blank">{}</a>"#,
                         job.link, job.name
                     ));
                     job_container.set_class_name("job job-skipped");
