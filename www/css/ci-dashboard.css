@@ -2,18 +2,15 @@
     0% {
         background-color: lightblue;
     }
-
     50% {
         background-color: darkcyan;
     }
-
     100% {
         background-color: lightblue;
     }
 }
 
-html,
-body {
+html, body {
     height: 100%;
     color: white;
     background-color: black;
@@ -68,7 +65,7 @@ i {
 
 .project {
     width: auto;
-    height: 30%;
+    height: 23em;
     display: inline-block;
     vertical-align: middle;
     border-color: darkgray;
@@ -99,7 +96,9 @@ i {
 }
 
 .pipeline .label {
-    display: inline-block;
+    display: block;
+    padding-left: 1em;
+    font-size: 0.8em;
 }
 
 .job-running {
@@ -121,6 +120,7 @@ i {
 
 .job-success a {
     color: black;
+    text-decoration: none;
 }
 
 .job-fail {
@@ -131,6 +131,7 @@ i {
 
 .job-fail a {
     color: white;
+    text-decoration: none;
 }
 
 .job-skipped {
@@ -141,6 +142,7 @@ i {
 
 .job-skipped a {
     color: black;
+    text-decoration: none;
 }
 
 .job-manual {
@@ -151,6 +153,7 @@ i {
 
 .job-manual a {
     color: black;
+    text-decoration: none;
 }
 
 .job {
