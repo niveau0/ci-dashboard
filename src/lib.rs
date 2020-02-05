@@ -2,16 +2,15 @@ extern crate cfg_if;
 extern crate wasm_bindgen;
 
 use cfg_if::cfg_if;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use web_sys::console;
-
-use futures::{future, Future};
+use futures::future;
+use futures::TryFutureExt;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::Mutex;
-
-use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::future_to_promise;
+use web_sys::console;
 
 mod dom;
 mod gitlab;
@@ -116,7 +115,13 @@ fn update_gitlab(document: Arc<web_sys::Document>, state: AppState, config: Arc<
                 .and_then(move |pipelines| {
                     if pipelines.len() > 0 {
                         let project_id = project.id;
-                        dom::Dom::update_project(&document, project_id, &project.name, &project.group, &pipelines);
+                        dom::Dom::update_project(
+                            &document,
+                            project_id,
+                            &project.name,
+                            &project.group,
+                            &pipelines,
+                        );
 
                         let mut max = 5;
                         for pipeline in &pipelines {
@@ -125,11 +130,7 @@ fn update_gitlab(document: Arc<web_sys::Document>, state: AppState, config: Arc<
                             }
                             max -= 1;
 
-                            dom::Dom::update_pipeline(
-                                &document,
-                                project_id,
-                                &pipeline,
-                            );
+                            dom::Dom::update_pipeline(&document, project_id, &pipeline);
 
                             let pipeline_id = pipeline.id;
                             let document = document.clone();
@@ -153,18 +154,18 @@ fn update_gitlab(document: Arc<web_sys::Document>, state: AppState, config: Arc<
                                             );
                                             future::ok(JsValue::NULL)
                                         });
-                                    future_to_promise(future);
+                                    let _ = future_to_promise(future);
                                     future::ok(JsValue::NULL)
                                 });
-                            future_to_promise(future);
+                            let _ = future_to_promise(future);
                         }
                     }
                     future::ok(JsValue::NULL)
                 });
-            future_to_promise(future);
+            let _ = future_to_promise(future);
         }
         future::ok(JsValue::NULL)
     });
 
-    future_to_promise(future);
+    let _ = future_to_promise(future);
 }
